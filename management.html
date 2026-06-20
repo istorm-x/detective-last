@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>شؤون الضباط - القيادة</title>
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; }
+        .nav { background: #000; padding: 15px; }
+        a button, .nav button { background: #d4af37; border: none; padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+        input, select { padding: 8px; background: #222; color: white; border: 1px solid #d4af37; margin: 5px; text-align: center; border-radius: 3px; }
+        .admin-box { background: #111; padding: 20px; border-radius: 5px; border: 1px solid #d4af37; margin: 30px auto; max-width: 750px; text-align: right; }
+        .rank-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        .rank-table th, .rank-table td { border: 1px solid #333; padding: 10px; text-align: center; }
+        .rank-table th { background: #222; color: #d4af37; }
+        .badge { padding: 3px 6px; font-weight: bold; border-radius: 3px; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+    <div id="secureContent">
+        <div class="nav">
+            <a href="index.html"><button>الرئيسية والقضايا</button></a>
+            <a href="tasks.html"><button>إدارة المهام</button></a>
+            <a href="management.html"><button style="background: #fff; color: black;">شؤون الضباط ⚙️</button></a>
+            <a href="report.html"><button>رفع تقرير</button></a>
+            <a href="wanted.html"><button>سجل المطلوبين</button></a>
+        </div>
+
+        <h2 style="color: #d4af37; margin-top: 25px;">🛑 القيادة العليا - شؤون الضباط</h2>
+        
+        <div class="admin-box">
+            <h4>➕ تعيين فرد جديد</h4>
+            <input id="newUserName" placeholder="اسم الفرد">
+            <input id="newUserPass" placeholder="الرمز السري">
+            <select id="newUserRank">
+                <option value="detective member">detective member</option>
+                <option value="debuty detective commander">debuty detective commander</option>
+                <option value="Detective commander">Detective commander</option>
+            </select>
+            <button onclick="registerNewUser()" style="background:#d4af37; color:black; padding:8px 15px; font-weight:bold; cursor:pointer; border:none;">تعيين</button>
+
+            <table class="rank-table">
+                <thead><tr><th>الاسم</th><th>الرمز</th><th>الرتبة</th><th>تعديل الرتبة</th><th>طرد</th></tr></thead>
+                <tbody id="rankTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = (localStorage.getItem('username') || "").trim().toLowerCase();
+        let usersList = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+        let myAccount = usersList.find(u => u.username.toLowerCase() === currentUser);
+        let isLeader = myAccount && (myAccount.rank === "Detective commander" || myAccount.rank === "debuty detective commander");
+
+        window.onload = function() {
+            if (localStorage.getItem('isLoggedIn') !== 'true' || !isLeader) {
+                alert("⛔ صلاحية مرفوضة!"); window.location.href = "tasks.html";
+            } else { loadRankTable(); }
+        };
+
+        function loadRankTable() {
+            let tbody = document.getElementById('rankTableBody'); tbody.innerHTML = "";
+            let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+
+            savedUsers.forEach((user, index) => {
+                let isRoot = user.username.toLowerCase() === "sherlock"; // قفل الصلاحيات على الاسم الجديد
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${user.username}</b></td>
+                        <td><code>${user.pass}</code></td>
+                        <td><span class="badge" style="background:#d4af37; color:black;">${user.rank}</span></td>
+                        <td>
+                            <select onchange="changeRankViaDropdown(${index}, this.value)">
+                                <option value="" disabled selected>تغيير إلى...</option>
+                                <option value="detective member">detective member</option>
+                                <option value="debuty detective commander">debuty detective commander</option>
+                                <option value="Detective commander">Detective commander</option>
+                            </select>
+                        </td>
+                        <td>${isRoot ? "🔒" : `<button onclick="deleteUser(${index})" style="background:red; color:white; border:none; padding:4px;">طرد</button>`}</td>
+                    </tr>`;
+            });
+        }
+
+        function registerNewUser() {
+            let name = document.getElementById('newUserName').value.trim().toLowerCase();
+            let pass = document.getElementById('newUserPass').value.trim();
+            let rank = document.getElementById('newUserRank').value;
+            if (!name || !pass) return;
+
+            let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+            savedUsers.push({ username: name, pass: pass, rank: rank });
+            localStorage.setItem('fbiUsersList', JSON.stringify(savedUsers));
+            loadRankTable();
+        }
+
+        function changeRankViaDropdown(userIndex, newRank) {
+            let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+            if (savedUsers[userIndex].username.toLowerCase() === "sherlock") return;
+            savedUsers[userIndex].rank = newRank;
+            localStorage.setItem('fbiUsersList', JSON.stringify(savedUsers));
+            loadRankTable();
+        }
+
+        function deleteUser(index) {
+            let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+            savedUsers.splice(index, 1); localStorage.setItem('fbiUsersList', JSON.stringify(savedUsers));
+            loadRankTable();
+        }
+    </script>
+</body>
+</html>

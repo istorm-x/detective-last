@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>بوابة الحماية المشتركة - باسوورد وبصمة</title>
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; overflow-x: hidden; }
+        .nav { background: #000; padding: 15px; }
+        a button, .nav button { background: #d4af37; border: none; padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+        table { margin: 20px auto; width: 80%; border-collapse: collapse; }
+        th, td { border: 1px solid #d4af37; padding: 10px; }
+        .del { background: red; color: white; border: none; padding: 5px; cursor: pointer; }
+        input { padding: 8px; background: #222; color: white; border: 1px solid #d4af37; margin: 5px; text-align: center; }
+        .case-number { background: #d4af37; color: black; padding: 2px 8px; font-weight: bold; border-radius: 3px; }
+        #loginBox { background: #111; width: 320px; margin: 80px auto; padding: 25px; border: 2px solid #d4af37; border-radius: 5px; }
+        #mainContent { display: none; }
+        #welcomeBadge { background: #111; border: 1px solid #d4af37; padding: 10px; display: inline-block; margin-top: 10px; border-radius: 5px; font-weight: bold; }
+        #welcomeName { color: #d4af37; }
+        #fingerprintArea { display: none; margin-top: 20px; }
+        .fingerprint-pad {
+            width: 100px; height: 100px; margin: 15px auto;
+            background: #222 url('https://img.icons8.com/ios-filled/100/d4af37/fingerprint.png') no-repeat center;
+            background-size: 65%; border: 3px dashed #d4af37; border-radius: 50%;
+            cursor: pointer; transition: transform 0.2s, background-color 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .fingerprint-pad:active { background-color: #2a3311; transform: scale(0.95); border-style: solid; border-color: #00ffcc; }
+        .scan-line { position: absolute; width: 100%; height: 4px; background: #00ffcc; box-shadow: 0 0 10px #00ffcc; top: -10px; display: none; }
+        @keyframes laserMove { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+        .status-text { color: #00ffcc; font-weight: bold; margin-top: 10px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div id="loginBox">
+        <h3 id="portalTitle">🔐 بوابة الحماية الثنائية</h3>
+        <div id="authInputs">
+            <input id="user" type="text" placeholder="اسم المستخدم"><br>
+            <input id="pass" type="password" placeholder="الرقم السري"><br>
+            <button onclick="verifyPassword()" style="background:#d4af37; padding:10px; font-weight:bold; width:100%; cursor:pointer; margin-top:10px;">التحقق من الهوية</button>
+        </div>
+        <div id="fingerprintArea">
+            <p style="font-size: 12px; color: #aaa;">تم قبول الرمز بنجاح. ضَع إصبعك على المستشعر أدناه لإكمال الفحص الحيوي</p>
+            <div class="fingerprint-pad" id="scanner" onmousedown="startScan()" onmouseup="cancelScan()" onmouseleave="cancelScan()" ontouchstart="startScan()" ontouchend="cancelScan()">
+                <div class="scan-line" id="laser"></div>
+            </div>
+            <div class="status-text" id="status">في انتظار تبصيم المحقق...</div>
+        </div>
+    </div>
+
+    <div id="mainContent">
+        <div class="nav" id="navBar">
+            <a href="index.html"><button style="background:#fff; color:#000;">الرئيسية والقضايا</button></a>
+            <a href="tasks.html"><button>إدارة المهام</button></a> 
+            <a href="report.html"><button>رفع تقرير</button></a>
+            <a href="wanted.html"><button>سجل المطلوبين</button></a>
+            <button onclick="logout()" style="background:#7f1d1d; color:white;">تسجيل خروج</button>
+        </div>
+        <br>
+        <div id="welcomeBadge">
+            🕵️‍♂️ تم التوثيق المزدوج! مرحباً بك يا حضرة المحقق: <span id="welcomeName"></span>
+        </div>
+        <h2>ملفات القضايا الأرشيفية (المحفوظة)</h2>
+        <input id="cID" type="number" placeholder="رقم القضية">
+        <input id="cType" placeholder="نوع الجريمة">
+        <button onclick="addCase()" style="background:#d4af37; padding:10px; font-weight:bold; cursor:pointer;">إنشاء قضية</button>
+        <table id="cTable">
+            <thead><tr><th>رقم القضية</th><th>نوع الجريمة</th><th>إجراء</th></tr></thead>
+            <tbody id="cBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const scanSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
+        let scanTimer; let isScanning = false; let verifiedUser = "";
+
+        // الحساب الماستر الجديد تم تحديثه هنا
+        if (!localStorage.getItem('fbiUsersList')) {
+            const defaultUsers = [
+                { username: "sherlock", pass: "221b", rank: "Detective commander" },
+                { username: "ahmed", pass: "fbi2026", rank: "detective member" },
+                { username: "khaled", pass: "5566", rank: "detective member" },
+                { username: "abdullah", pass: "7788", rank: "detective member" }
+            ];
+            localStorage.setItem('fbiUsersList', JSON.stringify(defaultUsers));
+        }
+
+        window.onload = function() {
+            if (localStorage.getItem('isLoggedIn') === 'true') { showSite(); }
+        };
+
+        function verifyPassword() {
+            let u = document.getElementById('user').value.trim().toLowerCase();
+            let p = document.getElementById('pass').value.trim();
+            let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+            let account = savedUsers.find(user => user.username.toLowerCase() === u && user.pass === p);
+
+            if (account) {
+                verifiedUser = account.username;
+                document.getElementById('authInputs').style.display = 'none'; 
+                document.getElementById('fingerprintArea').style.display = 'block'; 
+                document.getElementById('portalTitle').innerText = "🧬 مستشعر البصمة الحيوية";
+            } else { alert("❌ اسم المستخدم أو الرقم السري غلط!"); }
+        }
+
+        function startScan() {
+            isScanning = true;
+            document.getElementById('laser').style.display = 'block';
+            document.getElementById('laser').style.animation = 'laserMove 1s linear infinite';
+            document.getElementById('status').innerText = "⚡ جاري فحص البصمة.. خلك ضاغط ولا تشيل إصبعك!";
+            scanSound.play().catch(() => {});
+
+            scanTimer = setTimeout(function() {
+                if (isScanning) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('username', verifiedUser);
+                    showSite();
+                }
+            }, 2000);
+        }
+
+        function cancelScan() {
+            if (!isScanning) return;
+            clearTimeout(scanTimer); isScanning = false;
+            document.getElementById('laser').style.display = 'none';
+            document.getElementById('status').innerText = "❌ فشل التوثيق الحيوي!";
+            document.getElementById('status').style.color = "red";
+        }
+
+        function showSite() {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('welcomeName').innerText = localStorage.getItem('username') || "مجهول";
+            loadCases();
+        }
+
+        function logout() {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('username');
+            location.reload();
+        }
+
+        function addCase() {
+            let id = document.getElementById('cID').value.trim();
+            let type = document.getElementById('cType').value.trim();
+            if (!id || !type) return;
+            let cases = JSON.parse(localStorage.getItem('casesList')) || [];
+            if (cases.some(c => c.id == id)) return;
+            cases.push({ id: id, type: type });
+            localStorage.setItem('casesList', JSON.stringify(cases));
+            loadCases();
+            document.getElementById('cID').value = ''; document.getElementById('cType').value = '';
+        }
+
+        function loadCases() {
+            let cases = JSON.parse(localStorage.getItem('casesList')) || [];
+            let tbody = document.getElementById('cBody'); tbody.innerHTML = "";
+            cases.forEach((c, index) => {
+                tbody.innerHTML += `<tr><td><span class="case-number">#${c.id}</span></td><td><b>${c.type}</b></td><td><button class="del" onclick="deleteCase(${index})">مسح</button></td></tr>`;
+            });
+        }
+
+        function deleteCase(index) {
+            let cases = JSON.parse(localStorage.getItem('casesList')) || [];
+            cases.splice(index, 1); localStorage.setItem('casesList', JSON.stringify(cases)); loadCases();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>رفع تقرير</title>
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; }
+        .nav { background: #000; padding: 15px; }
+        a button { background: #d4af37; border: none; padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+        table { margin: 20px auto; width: 80%; border-collapse: collapse; }
+        th, td { border: 1px solid #d4af37; padding: 10px; }
+        .del { background: red; color: white; border: none; padding: 5px; cursor: pointer; }
+        input, textarea { width: 60%; padding: 10px; margin: 5px; background: #222; color: white; border: 1px solid #d4af37; }
+        .case-link { color: #d4af37; font-weight: bold; text-decoration: none; background: #111; padding: 2px 6px; border-radius: 3px; border: 1px solid #d4af37; }
+    </style>
+</head>
+<body>
+
+    <div id="secureContent" style="display:none;">
+        <div class="nav">
+            <a href="index.html"><button>الرئيسية والقضايا</button></a>
+            <a href="report.html"><button>رفع تقرير</button></a>
+            <a href="wanted.html"><button>سجل المطلوبين</button></a>
+        </div>
+
+        <h2>رفع تقرير وأدلة قضية</h2>
+        <input id="rName" placeholder="اسم المحقق"><br>
+        <input id="rCaseNum" type="number" placeholder="رقم القضية المرتبطة بالتقرير (إجباري)"><br>
+        <textarea id="rDetails" placeholder="تفاصيل القضية والوقائع الميدانية"></textarea><br>
+        <input id="rEvidence" placeholder="رابط الدليل (صور أو فيديو)"><br>
+        <button onclick="sendAndSave()" style="background:#d4af37; padding:10px; font-weight:bold; cursor:pointer;">إرسال للديسكورد وحفظ بالموقع</button>
+
+        <h2>أرشيف التقارير المسجلة</h2>
+        <table>
+            <thead>
+                <tr><th>المحقق</th><th>رقم القضية</th><th>التفاصيل</th><th>الأدلة</th><th>إجراء</th></tr>
+            </thead>
+            <tbody id="rBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // حماية الصفحة: إذا مو مسجل دخول يطرده للرئيسية
+            if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+                alert("🔒 يجب تسجيل الدخول أولاً!");
+                window.location.href = "index.html";
+            } else {
+                document.getElementById('secureContent').style.display = 'block';
+                loadReports();
+            }
+        };
+
+        function sendAndSave() {
+            const webhook = 'ضع_رابط_الـ_WEBHOOK_هنا'; /* حط رابط الويب هوك حقك هنا */
+            let name = document.getElementById('rName').value.trim();
+            let caseNum = document.getElementById('rCaseNum').value.trim();
+            let details = document.getElementById('rDetails').value.trim();
+            let evidence = document.getElementById('rEvidence').value.trim();
+
+            if(!name || !caseNum || !details) { alert("الرجاء تعبئة جميع الحقول!"); return; }
+            let cases = JSON.parse(localStorage.getItem('casesList')) || [];
+            if (!cases.some(c => c.id == caseNum)) { alert(`❌ خطأ: لا توجد قضية برقم #${caseNum}!`); return; }
+
+            if(webhook !== 'ضع_رابط_الـ_WEBHOOK_هنا') {
+                fetch(webhook, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        embeds: [{
+                            title: "🚨 تقرير جنائي جديد مربوط بقضية",
+                            fields: [
+                                {name: "👤 المحقق:", value: name},
+                                {name: "📂 ملف القضية:", value: `#${caseNum}`},
+                                {name: "📝 التفاصيل:", value: details},
+                                {name: "🔗 الأدلة:", value: evidence || "لا يوجد"}
+                            ]
+                        }]
+                    })
+                });
+            }
+
+            let reports = JSON.parse(localStorage.getItem('reportsList')) || [];
+            reports.push({ name: name, caseNum: caseNum, details: details, evidence: evidence || "لا يوجد" });
+            localStorage.setItem('reportsList', JSON.stringify(reports));
+            loadReports();
+            document.getElementById('rName').value = '';
+            document.getElementById('rCaseNum').value = '';
+            document.getElementById('rDetails').value = '';
+            document.getElementById('rEvidence').value = '';
+            alert('✅ تم الحفظ والإرسال!');
+        }
+
+        function loadReports() {
+            let reports = JSON.parse(localStorage.getItem('reportsList')) || [];
+            let tbody = document.getElementById('rBody');
+            tbody.innerHTML = "";
+            reports.forEach((r, index) => {
+                let evLink = r.evidence.startsWith('http') ? `<a href="${r.evidence}" target="_blank" style="color:#d4af37">فتح الدليل</a>` : r.evidence;
+                tbody.innerHTML += `<tr>
+                    <td><b>${r.name}</b></td>
+                    <td><a href="index.html" class="case-link">ملف #${r.caseNum}</a></td>
+                    <td>${r.details}</td>
+                    <td>${evLink}</td>
+                    <td><button class="del" onclick="deleteReport(${index})">مسح</button></td>
+                </tr>`;
+            });
+        }
+
+        function deleteReport(index) {
+            let reports = JSON.parse(localStorage.getItem('reportsList')) || [];
+            reports.splice(index, 1);
+            localStorage.setItem('reportsList', JSON.stringify(reports));
+            loadReports();
+        }
+    </script>
+</body>
+</html>

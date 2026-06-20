@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>سجل المطلوبين</title>
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; }
+        .nav { background: #000; padding: 15px; }
+        a button { background: #d4af37; border: none; padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+        table { margin: 20px auto; width: 80%; border-collapse: collapse; }
+        th, td { border: 1px solid #d4af37; padding: 10px; }
+        .del { background: red; color: white; border: none; padding: 5px; cursor: pointer; }
+        input { padding: 8px; background: #222; color: white; border: 1px solid #d4af37; margin: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="secureContent" style="display:none;">
+        <div class="nav">
+            <a href="index.html"><button>الرئيسية والقضايا</button></a>
+            <a href="report.html"><button>رفع تقرير</button></a>
+            <a href="wanted.html"><button>سجل المطلوبين</button></a>
+        </div>
+
+        <h2>سجل المطلوبين والهاربين</h2>
+        <input id="wName" placeholder="اسم المطلوب">
+        <input id="wCrime" placeholder="التهمة">
+        <input id="wNum" type="number" placeholder="رقم القضية المرتبطة (إجباري)">
+        <button onclick="addWanted()" style="background:#d4af37; padding:10px; font-weight:bold; cursor:pointer;">إضافة مطلوب</button>
+
+        <table id="wTable">
+            <thead>
+                <tr><th>الاسم</th><th>التهمة</th><th>رقم القضية</th><th>إجراء</th></tr>
+            </thead>
+            <tbody id="wBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // حماية الصفحة: إذا مو مسجل دخول يطرده للرئيسية
+            if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+                alert("🔒 يجب تسجيل الدخول أولاً!");
+                window.location.href = "index.html";
+            } else {
+                document.getElementById('secureContent').style.display = 'block';
+                loadWanted();
+            }
+        };
+
+        function addWanted() {
+            let name = document.getElementById('wName').value.trim();
+            let crime = document.getElementById('wCrime').value.trim();
+            let num = document.getElementById('wNum').value.trim();
+            if (!name || !crime || !num) { alert("يجب تعبئة جميع الحقول!"); return; }
+            let cases = JSON.parse(localStorage.getItem('casesList')) || [];
+            if (!cases.some(c => c.id == num)) { alert(`❌ خطأ: لا توجد قضية برقم #${num}!`); return; }
+            let wantedList = JSON.parse(localStorage.getItem('wantedList')) || [];
+            wantedList.push({ name: name, crime: crime, num: num });
+            localStorage.setItem('wantedList', JSON.stringify(wantedList));
+            loadWanted();
+            document.getElementById('wName').value = '';
+            document.getElementById('wCrime').value = '';
+            document.getElementById('wNum').value = '';
+        }
+
+        function loadWanted() {
+            let wantedList = JSON.parse(localStorage.getItem('wantedList')) || [];
+            let tbody = document.getElementById('wBody');
+            tbody.innerHTML = "";
+            wantedList.forEach((w, index) => {
+                tbody.innerHTML += `<tr>
+                    <td>${w.name}</td>
+                    <td>${w.crime}</td>
+                    <td><a href="index.html" style="color:#d4af37; font-weight:bold;">ملف #${w.num}</a></td>
+                    <td><button class="del" onclick="deleteWanted(${index})">مسح</button></td>
+                </tr>`;
+            });
+        }
+
+        function deleteWanted(index) {
+            let wantedList = JSON.parse(localStorage.getItem('wantedList')) || [];
+            wantedList.splice(index, 1);
+            localStorage.setItem('wantedList', JSON.stringify(wantedList));
+            loadWanted();
+        }
+    </script>
+</body>
+</html>

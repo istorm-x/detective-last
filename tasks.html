@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>غرفة العمليات - لوحة المهام</title>
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; overflow-x: hidden; }
+        .nav { background: #000; padding: 15px; }
+        a button, .nav button { background: #d4af37; border: none; padding: 10px 20px; margin: 5px; font-weight: bold; cursor: pointer; }
+        input, select { padding: 8px; background: #222; color: white; border: 1px solid #d4af37; margin: 5px; text-align: center; border-radius: 3px; }
+        .admin-box { background: #111; padding: 15px; display: none; border-radius: 5px; border: 1px solid #d4af37; margin: 20px auto; max-width: 650px; text-align: right; }
+        .rank-badge { background: #d4af37; color: black; padding: 3px 8px; font-weight: bold; border-radius: 3px; font-size: 12px; margin-right: 10px; }
+        #boardsContainer { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px auto; width: 95%; }
+        .task-board { background: #111; border: 2px solid #333; border-radius: 8px; width: 320px; padding: 15px; text-align: right; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .task-board.active-board { border-color: #d4af37; }
+        .board-header { border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .board-title { color: #fff; margin: 0; font-size: 18px; }
+        .board-mission { font-size: 12px; color: #aaa; margin: 5px 0 0 0; }
+        .sub-tasks-list { list-style: none; padding: 0; margin: 0 0 15px 0; max-height: 200px; overflow-y: auto; }
+        .sub-task-item { background: #222; padding: 8px; margin-bottom: 5px; border-right: 3px solid #00ffcc; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+        .item-del { background: none; border: none; color: #ff4444; cursor: pointer; font-weight: bold; }
+        .add-item-box { display: flex; gap: 5px; }
+        .add-item-box input { flex: 1; padding: 5px; font-size: 12px; border: 1px solid #333; margin: 0; }
+        .add-item-box button { background: #00ffcc; color: black; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="secureContent">
+        <div class="nav">
+            <a href="index.html"><button>الرئيسية والقضايا</button></a>
+            <a href="tasks.html"><button style="background:#fff; color:#000;">إدارة المهام</button></a>
+            <a href="management.html" id="navAdminLink" style="display: none;"><button style="background: #a32a2a; color: white;">شؤون الضباط ⚙️</button></a>
+            <a href="report.html"><button>رفع تقرير</button></a>
+            <a href="wanted.html"><button>سجل المطلوبين</button></a>
+        </div>
+
+        <h2>🗂️ لوحة توزيع الأوامر والمهام <span id="myRank" class="rank-badge">جاري الفحص...</span></h2>
+        
+        <div id="adminPanel" class="admin-box">
+            <h4 style="margin-top:0; color:#d4af37; border-bottom: 1px solid #333; padding-bottom:5px;">🎯 لوحة القيادة العليا (إسناد المهام)</h4>
+            <select id="agentSelect"><option value="" disabled selected> اختر الفرد المسؤول... </option></select>
+            <input id="mainMission" placeholder="المهمة الرئيسية المسندة إليه" style="width: 250px;">
+            <button onclick="createNewBoard()" style="background:#d4af37; border:none; padding:9px 15px; font-weight:bold; cursor:pointer;">إرسال الأمر العملياتي</button>
+        </div>
+
+        <div id="boardsContainer"></div>
+    </div>
+
+    <script>
+        let currentUser = (localStorage.getItem('username') || "").trim().toLowerCase();
+        let usersList = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+        let myAccount = usersList.find(u => u.username.toLowerCase() === currentUser);
+        let isLeader = myAccount && (myAccount.rank === "Detective commander" || myAccount.rank === "debuty detective commander");
+
+        window.onload = function() {
+            if (localStorage.getItem('isLoggedIn') !== 'true' || !myAccount) {
+                alert("🔒 يجب تسجيل الدخول أولاً عبر الصفحة الرئيسية!");
+                window.location.href = "index.html";
+            } else {
+                checkPermissions();
+                updateAgentDropdown();
+                loadBoards();
+            }
+        };
+
+        function checkPermissions() {
+            let rankTag = document.getElementById('myRank');
+            rankTag.innerText = `الرتبة: ${myAccount.rank} 🎖️`;
+            if (isLeader) {
+                rankTag.style.background = "#d4af37";
+                document.getElementById('adminPanel').style.display = 'block'; 
+                document.getElementById('navAdminLink').style.display = 'inline-block';
+            } else {
+                rankTag.style.background = "#00ffcc"; rankTag.style.color = "black";
+            }
+        }
+
+        function updateAgentDropdown() {
+            let select = document.getElementById('agentSelect'); if (!select) return;
+            select.innerHTML = `<option value="" disabled selected> اختر الفرد المسؤول... </option>`;
+            usersList.forEach(user => {
+                if (user.username !== "sherlock") { // تم التحديث لعدم ظهور الحساب الماستر في التكليفات
+                    select.innerHTML += `<option value="${user.username}">👤 ${user.username} (${user.rank})</option>`;
+                }
+            });
+        }
+
+        function createNewBoard() {
+            if (!isLeader) return;
+            let agent = document.getElementById('agentSelect').value;
+            let mission = document.getElementById('mainMission').value.trim();
+            if (!agent || !mission) { alert("❌ تنبيه: حدد الفرد والمهمة!"); return; }
+
+            let boards = JSON.parse(localStorage.getItem('fbiBoards')) || [];
+            boards.push({ id: Date.now(), agent: agent, mission: mission, details: [] });
+            localStorage.setItem('fbiBoards', JSON.stringify(boards));
+            document.getElementById('agentSelect').selectedIndex = 0;
+            document.getElementById('mainMission').value = '';
+            loadBoards();
+        }
+
+        function loadBoards() {
+            let boards = JSON.parse(localStorage.getItem('fbiBoards')) || [];
+            let container = document.getElementById('boardsContainer'); container.innerHTML = "";
+
+            boards.forEach((board, bIndex) => {
+                let canModify = (isLeader || currentUser === board.agent.toLowerCase());
+                let actionBoxHTML = canModify ? `<div class="add-item-box"><input id="input-${board.id}" placeholder="تحديث..."><button onclick="addDetailToBoard(${bIndex}, ${board.id})">تحديث</button></div>` : `<p style="color:#555; font-size:11px; text-align:center; margin:0;">🔒 للقراءة فقط</p>`;
+                let detailsHTML = "";
+                board.details.forEach((item, iIndex) => {
+                    let deleteBtnHTML = canModify ? `<button class="item-del" onclick="deleteDetail(${bIndex}, ${iIndex})">×</button>` : "";
+                    detailsHTML += `<li class="sub-task-item"><span>🔹 ${item}</span>${deleteBtnHTML}</li>`;
+                });
+
+                let isMyBoard = (currentUser === board.agent.toLowerCase());
+                container.innerHTML += `
+                    <div class="${isMyBoard ? "task-board active-board" : "task-board"}">
+                        <div class="board-header">
+                            <div>
+                                <h4 class="board-title">👤 المحقق: ${board.agent}</h4>
+                                <p class="board-mission">🎯 ${board.mission}</p>
+                            </div>
+                            ${isLeader ? `<button onclick="deleteBoard(${bIndex})" style="background:red; color:white; border:none; padding:3px; cursor:pointer;">إغلاق</button>` : ""}
+                        </div>
+                        <ul class="sub-tasks-list">${detailsHTML || '<p style="color:#444; font-size:12px; text-align:center;">لا يوجد تحديثات...</p>'}</ul>
+                        ${actionBoxHTML}
+                    </div>`;
+            });
+        }
+
+        function addDetailToBoard(boardIndex, boardId) {
+            let text = document.getElementById(`input-${boardId}`).value.trim(); if (!text) return;
+            let boards = JSON.parse(localStorage.getItem('fbiBoards')) || [];
+            boards[boardIndex].details.push(text); localStorage.setItem('fbiBoards', JSON.stringify(boards));
+            loadBoards();
+        }
+
+        function deleteDetail(boardIndex, detailIndex) {
+            let boards = JSON.parse(localStorage.getItem('fbiBoards')) || [];
+            boards[boardIndex].details.splice(detailIndex, 1); localStorage.setItem('fbiBoards', JSON.stringify(boards));
+            loadBoards();
+        }
+
+        function deleteBoard(index) {
+            if (!isLeader) return;
+            let boards = JSON.parse(localStorage.getItem('fbiBoards')) || [];
+            boards.splice(index, 1); localStorage.setItem('fbiBoards', JSON.stringify(boards));
+            loadBoards();
+        }
+    </script>
+</body>
+</html>
