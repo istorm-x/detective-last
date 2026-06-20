@@ -63,7 +63,7 @@
             let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
 
             savedUsers.forEach((user, index) => {
-                let isRoot = user.username.toLowerCase() === "sherlock"; // قفل الصلاحيات على الاسم الجديد
+                let isRoot = user.username.toLowerCase() === "sherlock";
                 tbody.innerHTML += `
                     <tr>
                         <td><b>${user.username}</b></td>
@@ -89,8 +89,18 @@
             if (!name || !pass) return;
 
             let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
+            
+            // منع تكرار نفس الحساب
+            if(savedUsers.some(user => user.username.toLowerCase() === name)) {
+                alert("❌ هذا الفرد مضاف مسبقاً بالتنظيم!");
+                return;
+            }
+
             savedUsers.push({ username: name, pass: pass, rank: rank });
             localStorage.setItem('fbiUsersList', JSON.stringify(savedUsers));
+            
+            document.getElementById('newUserName').value = '';
+            document.getElementById('newUserPass').value = '';
             loadRankTable();
         }
 
