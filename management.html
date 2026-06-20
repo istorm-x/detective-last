@@ -90,7 +90,6 @@
 
             let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
             
-            // منع تكرار نفس الحساب
             if(savedUsers.some(user => user.username.toLowerCase() === name)) {
                 alert("❌ هذا الفرد مضاف مسبقاً بالتنظيم!");
                 return;
