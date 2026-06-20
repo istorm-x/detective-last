@@ -80,7 +80,7 @@
             let select = document.getElementById('agentSelect'); if (!select) return;
             select.innerHTML = `<option value="" disabled selected> اختر الفرد المسؤول... </option>`;
             usersList.forEach(user => {
-                if (user.username !== "sherlock") { // تم التحديث لعدم ظهور الحساب الماستر في التكليفات
+                if (user.username !== "sherlock") {
                     select.innerHTML += `<option value="${user.username}">👤 ${user.username} (${user.rank})</option>`;
                 }
             });
