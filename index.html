@@ -74,7 +74,6 @@
         const scanSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
         let scanTimer; let isScanning = false; let verifiedUser = "";
 
-        // الحساب الماستر الجديد تم تحديثه هنا
         if (!localStorage.getItem('fbiUsersList')) {
             const defaultUsers = [
                 { username: "sherlock", pass: "221b", rank: "Detective commander" },
@@ -93,7 +92,9 @@
             let u = document.getElementById('user').value.trim().toLowerCase();
             let p = document.getElementById('pass').value.trim();
             let savedUsers = JSON.parse(localStorage.getItem('fbiUsersList')) || [];
-            let account = savedUsers.find(user => user.username.toLowerCase() === u && user.pass === p);
+            
+            // التحقق المرن مع تجاهل المسافات وحالة الأحرف
+            let account = savedUsers.find(user => user.username.trim().toLowerCase() === u && user.pass.trim() === p);
 
             if (account) {
                 verifiedUser = account.username;
